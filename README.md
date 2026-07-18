@@ -35,12 +35,20 @@ a documented-forbidden complex-permittivity input (see `ORIGINAL_CODE_FINDINGS.m
 ![reference vs python](reports/figures/reference_vs_python.png)
 
 *MATLAB reference vs Python port for every numeric output across all 249 fixtures
-(RTA/SM/field, real and imaginary parts); points lie on the y = x line. Distribution of
-relative errors: [`reports/figures/error_histogram.png`](reports/figures/error_histogram.png).*
+(RTA/SM/field, real and imaginary parts); points lie on the y = x line.*
 
 Full interactive report: [`report.html`](report.html) (open the raw file, or run
 `./verify.sh` to regenerate it yourself) — see also the
 [scenario coverage matrix and tier breakdown](verification_report.md).
+
+### Supporting evidence
+
+| | |
+|---|---|
+| ![histogram](reports/figures/error_histogram.png) | ![heatmap](reports/figures/error_heatmap.png) |
+| Distribution of relative errors, with the tolerance line. | Per-fixture error over the (period/λ, incidence angle) plane. |
+| ![convergence](reports/figures/convergence.png) | **Independent triangulation.** A grating with equal inclusion and host permittivity is a uniform multilayer, so the RCWA result must reduce to a first-principles thin-film TMM. It does, to **~1e-16** (`verify/triangulate.py`). |
+| Physical outputs vs truncation order N, with a Richardson/Aitken limit and discretization-error estimate (`verify/convergence.py`). | These are non-gating INFO checks — extra, independent trust signals beyond the MATLAB gate. |
 
 ---
 
@@ -133,11 +141,19 @@ in `VERIFICATION_NOTES.md`.
 | `run_reference.m` | runs the original over the corpus (MATLAB + Octave) |
 | `reference_outputs/{matlab,octave}/` | golden reference results, committed so the report is reproducible without MATLAB/Octave installed |
 | `verify/compare.py`, `verify/tolerances.yaml` | comparison engine + budget-derived tolerances |
-| `report.html`, `verification_report.md` | latest golden report, committed and viewable directly on GitHub |
+| `verify/plots.py` | standalone figures (scatter, histogram, heatmap) |
+| `verify/convergence.py` | truncation-order (N) convergence study, Richardson/Aitken limit |
+| `verify/triangulate.py` | zero-contrast triangulation vs an independent thin-film TMM |
+| `report.html`, `verification_report.md` | latest golden report; also archived per version in `reports/vN/` |
+| `bench/` + `BENCHMARK.md` | honest wall-clock benchmark (Python + MATLAB) |
+| `notebooks/quickstart.ipynb` | runnable quickstart (executed in CI) |
+| `Dockerfile` | rebuild the report with no MATLAB, from the committed golden |
+| `docs/methodology.md` | orientation map for the verification method |
 | `VERIFICATION_NOTES.md` | analysis, branch/risk maps, tolerance derivations |
 | `ORIGINAL_CODE_FINDINGS.md` | bugs found in the original (F1/F2/F3) |
 | `NAME_MAP.md` | MATLAB→Python renames & semantic differences |
-| `CORPUS_CHANGELOG.md` | every change to the frozen corpus, logged |
+| `CORPUS_CHANGELOG.md` / `CHANGELOG.md` | corpus revisions / harness releases |
+| `THIRD_PARTY_NOTICES.md` | provenance & license of the original code |
 
 ## Attribution & license
 

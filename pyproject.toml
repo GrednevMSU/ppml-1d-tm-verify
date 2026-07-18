@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ppml-1d-tm-verify"
-version = "3.0.0"
+dynamic = ["version"]
 description = "Verified MATLAB->Python migration harness for PPML v3.0 RCWA (1-D TM group)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -15,10 +19,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]
+report = ["matplotlib>=3.6", "jupyter", "nbconvert"]
 
 [tool.setuptools]
 packages = ["ppml_1d_tm"]
 package-dir = { "" = "python_src" }
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

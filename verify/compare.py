@@ -295,11 +295,18 @@ def main():
                fixtures=fixtures, plots=plots, root=root, scatter_b64=scatter_b64,
                ref_engine=ref_engine, cross_engine=cross_engine)
 
-    (root / "report.html").write_text(render_html(ctx))
-    (root / "verification_report.md").write_text(render_md(ctx))
+    html_out = render_html(ctx)
+    md_out = render_md(ctx)
+    (root / "report.html").write_text(html_out)
+    (root / "verification_report.md").write_text(md_out)
+    # Auto-sync the versioned archive (manual copying silently drifts from the original).
+    archive = root / "reports" / f"v{manifest.get('corpus_version', 'x')}"
+    archive.mkdir(parents=True, exist_ok=True)
+    (archive / "report.html").write_text(html_out)
+    (archive / "verification_report.md").write_text(md_out)
     print(f"[compare] overall={overall}  gating-FAIL={n_fail}  rows={len(rows)}")
     print(f"[compare] worst gate rel={gw_rel[0]:.2e}@{gw_rel[1]}  abs={gw_abs[0]:.2e}@{gw_abs[1]}")
-    print("[compare] wrote report.html + verification_report.md")
+    print(f"[compare] wrote report.html + verification_report.md (+ archived to {archive.name}/)")
     sys.exit(0 if overall == "PASSED" else 1)
 
 
@@ -423,6 +430,8 @@ def _scatter_b64(sc_ref, sc_py, ref_engine):
                  f"points on y = x (worst rel {max_rel:.1e}, incl. non-gating near-anomaly)")
     ax.legend(loc="upper left", fontsize=8); ax.grid(True, alpha=0.25)
     ax.set_aspect("equal", adjustable="box")
+    fig.text(0.99, 0.01, f"PPML 1-D TM verification · {_dt.date.today().isoformat()}",
+             ha="right", va="bottom", fontsize=7, color="#888")
     return _b64(fig)
 
 

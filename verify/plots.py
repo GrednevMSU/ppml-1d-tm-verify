@@ -146,6 +146,66 @@ def error_histogram(ref_re, py_re, ref_im, py_im, tol_rel, version, date, figure
     return outpath
 
 
+def error_heatmap(root, version, date, figures_dir, ref_engine="matlab"):
+    """Per-fixture max abs error over the (period/wavelength, incidence angle) plane —
+    the physically-relevant parameter pair for a 1-D grating."""
+    import json
+    manifest = json.loads((root / "fixtures" / "manifest.json").read_text())
+    sys.path.insert(0, str(root / "python_src"))
+    from ppml_1d_tm import RTA_1d_tm, SM_1d_tm, field_1d_tm  # noqa: F401
+
+    xs, ys, es = [], [], []
+    for f in manifest["fixtures"]:
+        if f["expect"] != "ok":
+            continue
+        refp = root / "reference_outputs" / ref_engine / f"{f['id']}.mat"
+        if not refp.exists():
+            continue
+        ref = loadmat(refp, struct_as_record=False, squeeze_me=True)["ref"]
+        if str(ref.outcome) != "ok":
+            continue
+        fx = loadmat(root / "fixtures" / f"{f['id']}.mat",
+                     struct_as_record=False, squeeze_me=True)["fx"]
+        lam = 2 * np.pi / float(fx.k0)
+        ratio = float(fx.a) / lam
+        keys = OUTPUTS[f["function"]]
+        args = (fx.a, int(fx.L), complex(fx.epssup), complex(fx.epssub),
+                fx.epsxA, fx.epszA, fx.epsxB, fx.epszB, fx.sigma, fx.f, fx.d,
+                int(fx.halfnpw), float(fx.k0), float(fx.kpar))
+        try:
+            if f["function"] == "RTA":
+                out = dict(zip(keys, RTA_1d_tm(*args)))
+            elif f["function"] == "SM":
+                out = dict(zip(keys, SM_1d_tm(*args)))
+            else:
+                _, _, Ex, Ez, Sz = field_1d_tm(*args, int(fx.nx), fx.nz)
+                out = {"Ex": Ex, "Ez": Ez, "Sz": Sz}
+        except Exception:
+            continue
+        e = 0.0
+        for k in keys:
+            pv = _vec(out[k]); rv = _vec(getattr(ref, k))
+            if pv.size == rv.size and pv.size:
+                e = max(e, float(np.max(np.abs(pv - rv))))
+        xs.append(ratio); ys.append(float(fx.theta_deg)); es.append(max(e, 1e-18))
+
+    fig, ax = plt.subplots(figsize=(7.2, 5.2))
+    sc = ax.scatter(xs, ys, c=np.log10(es), cmap="viridis", s=45, edgecolors="k", linewidths=0.3)
+    cb = fig.colorbar(sc, ax=ax); cb.set_label("log10(max abs error) vs MATLAB")
+    ax.set_xscale("log")
+    ax.set_xlabel("period / wavelength  (a / λ0)")
+    ax.set_ylabel("incidence angle θ (deg)")
+    ax.set_title("PPML 1-D TM — per-fixture error over (a/λ, θ)")
+    ax.grid(True, alpha=0.25)
+    fig.text(0.99, 0.01, f"PPML 1-D TM verification {version} · {date}",
+             ha="right", va="bottom", fontsize=7, color="#888")
+    os.makedirs(figures_dir, exist_ok=True)
+    outpath = os.path.join(figures_dir, "error_heatmap.png")
+    fig.savefig(outpath, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return outpath
+
+
 def main():
     figures_dir = str(ROOT / "reports" / "figures")
     date = _dt.date.today().isoformat()
@@ -158,6 +218,8 @@ def main():
     print(f"[plots] {p1}  ({n} values, worst rel {max_rel:.2e})")
     p2 = error_histogram(ref_re, py_re, ref_im, py_im, 1e-9, version, date, figures_dir)
     print(f"[plots] {p2}")
+    p3 = error_heatmap(ROOT, version, date, figures_dir)
+    print(f"[plots] {p3}")
 
 
 if __name__ == "__main__":

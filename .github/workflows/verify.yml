@@ -35,6 +35,10 @@ jobs:
         run: octave -q run_reference.m
       - name: Compare Python port vs Octave reference (build report)
         run: python verify/compare.py --reference octave
+      - name: Triangulation (zero-contrast limit vs independent TMM)
+        run: python verify/triangulate.py
+      - name: Convergence study (truncation order N)
+        run: python verify/convergence.py
       - name: Upload report.html
         if: always()
         uses: actions/upload-artifact@v4
