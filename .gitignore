@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+
+# NOTE: reference_outputs/{matlab,octave}/ (the golden reference results) ARE
+# committed, so the Python side and report.html can be reproduced without needing
+# MATLAB/Octave installed. The root report.html / verification_report.md ARE
+# committed as the latest golden (viewable on GitHub). `./verify.sh` regenerates
+# all of the above locally. fixtures/ (frozen corpus, SHA-256 manifest) is committed
+# — it is the audit-locked ground truth. matlab_src/ and python_src/ are committed.

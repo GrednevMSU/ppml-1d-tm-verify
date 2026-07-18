@@ -1,0 +1,39 @@
+[project]
+name = "ppml-1d-tm-verify"
+version = "3.0.0"
+description = "Verified MATLAB->Python migration harness for PPML v3.0 RCWA (1-D TM group)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Nikita Grednev" }]
+dependencies = [
+    "numpy>=1.23",
+    "scipy>=1.9",
+    "PyYAML>=6.0",
+    "matplotlib>=3.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.5"]
+
+[tool.setuptools]
+packages = ["ppml_1d_tm"]
+package-dir = { "" = "python_src" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = ["matlab_src", "reference_outputs", "fixtures", "reports", "notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E741",  # ambiguous variable name 'l' — mirrors the MATLAB layer index l
+    "E501",  # long lines in derivation comments
+    "E701",  # multiple statements on one line (colon) — compact style, intentional
+    "E702",  # multiple statements on one line (semicolon) — compact style, intentional
+]

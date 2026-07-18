@@ -1,0 +1,11 @@
+# Generated reports/data — exclude from GitHub's language statistics so the
+# actual MATLAB/Python code is what shows (HTML reports otherwise dominate).
+report.html linguist-generated=true
+verification_report.md linguist-generated=true
+reports/** linguist-generated=true
+reference_outputs/** linguist-generated=true
+fixtures/** linguist-generated=true
+
+# Ensure the two languages that matter are always detected/highlighted.
+*.m linguist-language=MATLAB
+*.py linguist-language=Python

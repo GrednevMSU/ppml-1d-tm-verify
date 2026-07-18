@@ -1,0 +1,134 @@
+# tolerances.yaml — PPML 1-D TM differential test harness (Phase 5)
+#
+# PASS LOGIC (applies to every gated numeric output):
+#     PASS  iff  OR( rel_err <= tol_rel , abs_err <= tol_abs )
+# evaluated PER ELEMENT; a fixture-output passes iff every element passes. The OR is
+# deliberate: a legitimately-near-zero output (e.g. AA=0 for a lossless stack) passes on
+# the ABS branch, where a pure-relative metric would divide by ~0 (see VERIFICATION_NOTES
+# 10.4). Statuses self-explain: PASS(rel) | PASS(abs) | PASS(both) | FAIL |
+# INFO(non-gating) | DEVIATION(flag=<name>).
+#
+# DISCIPLINE (10.4): every tolerance below is DERIVED from an error budget and then
+# compared to the observed residual — NOT set a hair above the observed max. Observed
+# maxima (Python vs MATLAB R2025a, corpus v3) are quoted only to show the tier sits
+# ABOVE the budget with margin.
+
+schema_version: 1
+corpus_version: 3
+pass_logic: "OR(rel<=tol_rel, abs<=tol_abs), per element"
+
+# ---- GATE axis: Python port vs MATLAB (reference of record) ------------------
+gate:
+  RTA:
+    outputs: [RR, TT, AA]
+    tol_rel: 1.0e-11
+    tol_abs: 1.0e-10
+    # DERIVED budget: worst accumulation over the corpus = npw^2 * L * kappa_V * eps,
+    # MEASURED max = 5.34e-11 @ rand_003 (npw up to 61, L up to 4, eig eigenvector
+    # cond kappa_V). tol_abs 1e-10 sits ABOVE that budget with ~2x margin (NOT fitted:
+    # observed max abs is only 8.3e-12 @ S1, far below the budget — the budget is the
+    # binding constraint). tol_rel 1e-11 stays tight for well-scaled elements; small
+    # elements (e.g. an AA component ~0.04 with abs 8e-12 -> rel 1.8e-10) pass via the
+    # ABS branch of the OR. An initial 1e-12 guess was below the derived budget and was
+    # corrected after the FAILs triggered the budget analysis (discipline 10.4).
+    justification: >
+      S-matrix scalar observables. tol_abs 1e-10 = derived npw^2*L*kappa_V*eps
+      accumulation envelope (measured max 5.34e-11) + margin; tol_rel 1e-11 for
+      well-scaled elements. A real port bug is O(1e-2) (cf. D1) — far above this.
+  SM:
+    outputs: [rl, rr, tlr, trl]
+    tol_rel: 1.0e-11
+    tol_abs: 1.0e-10
+    # Same accumulation budget as RTA (shared eigen/Redheffer core). Observed abs
+    # max 1.9e-13, rel 4.7e-12 — both well under; budget 5.34e-11 is the constraint.
+    justification: >
+      0-order S-matrix amplitudes; same conditioning/budget as RTA. Complex compared
+      as re/im and modulus.
+  field:
+    outputs: [Ex, Ez, Sz]
+    tol_rel: 1.0e-9
+    tol_abs: 1.0e-11
+    # DERIVED (10.5): intra-layer field reconstruction evaluates BOTH exp(+iqz) and
+    # exp(+iq(d-z)); a strongly-evanescent mode spans exp(Im(q)*d). Worked case
+    # rand_085: Im(q)*d~432 in thick metal -> ~2-3 decades precision loss over the
+    # base S-matrix budget. Observed max rel 7.7e-11 < 1e-9 (budget+margin, NOT fitted);
+    # independently, MATLAB-vs-Octave field spread (6.3e-10) exceeds Python-vs-MATLAB.
+    justification: >
+      Fields carry the evanescent dynamic-range factor exp(Im(q)*d) absent from R/T.
+      GATED ON RELATIVE error (rel 1e-9 = base S-matrix budget x evanescent factor).
+      tol_abs 1e-11 is DELIBERATELY a small ABS FLOOR (not the primary gate, not swapped
+      digits): where a field sample is ~0 the relative error is meaningless, so the abs
+      floor carries those points. Well-scaled field points are judged on rel. A field
+      fixture whose relative error exceeds 1e-9 is a finding to investigate, not an
+      auto-loosen. Reported max abs (~4.6e-10) legitimately exceeds this floor and passes
+      as PASS(rel) via the OR — the status column states this on every row.
+
+# ---- Independent physical invariants (gating; catch formulation errors that ------
+# ---- agreement between two ports would miss — the code's own guard is vacuous, F3)
+invariants:
+  realness:
+    # For real epssup, RR and TT must be real. |Im| ~ 0 separates physical from the
+    # nonphysical complex-epssup fixtures (|Im(RR)|~0.094). Skipped when epssup complex.
+    applies_to: RTA fixtures with imag(epssup)==0
+    tol_abs: 1.0e-9
+    justification: >
+      Physicality check independent of the (tautological, F3) energy guard: with real
+      epssup the reflectance/transmittance must be real to ~round-off.
+  energy_bounds:
+    # Lossless fixtures: 0 <= R,T,A <= 1 and R+T+sumA = 1 (here R+T=1, A~0).
+    applies_to: lossless RTA fixtures
+    tol_abs: 1.0e-9
+    justification: >
+      Independent energy accounting on lossless stacks; would catch a mis-factored
+      formula that still telescopes past the original's vacuous guard.
+
+# ---- TIERS (auto-assigned from manifest / logged diagnostics) ----------------
+tiers:
+  near_anomaly:
+    trigger: "manifest.near_anomaly == true  (anom = min|Re(eps*k0^2-kx^2)|/(eps*k0^2) < 1e-2)"
+    status: INFO            # non-gating
+    tol_rel: 1.0e-3
+    tol_abs: 1.0e-4
+    justification: >
+      Rayleigh/Wood hypersensitivity is physics, not a porting error: near a cutoff an
+      order's kz->0 and R/T are ill-conditioned. Reported INFO with a loose tier; NOT
+      gated. (9 fixtures; incl. the 2 on-cutoff Wood fixtures.)
+  resonance:
+    trigger: "reference redheffer_cond > 1e8  (max_l cond(I - S2*S3))"
+    status: INFO
+    tol_rel: 1.0e-6
+    tol_abs: 1.0e-8
+    justification: >
+      Ill-conditioned Redheffer inversion at resonance. Keyed to LOGGED cond, not a
+      guess. Observed corpus max cond = 292 (< 1e8) -> NO fixture reaches this tier;
+      mechanism is in place for other corpora/engines.
+
+# ---- CROSS-ENGINE axis: MATLAB vs Octave (INFO; pre-declared, 10.3) -----------
+cross_engine:
+  status: INFO
+  tol_abs: 5.0e-9
+  justification: >
+    Different LAPACK builds; physical outputs can differ beyond the 1e-11 Python gate
+    with no port fault. Pre-declared BEFORE the run. Observed: RTA 5.0e-12, SM 2.8e-13,
+    field 6.3e-10 -> all under 5e-9. A residual above this tier is a FINDING to
+    investigate, never a loosening of the Python gate.
+
+# ---- Documented intentional deviations (flags; default OFF -> replicate) ------
+deviations:
+  on_singular:
+    default: raise
+    effect: >
+      At an EXACT singular cutoff (branch_wood_anomaly_+0.00) the port RAISES by default
+      instead of returning MATLAB's NaN / Octave's finite garbage (the two references
+      themselves disagree, D2). Status DEVIATION(flag=on_singular) on the gate axis;
+      INFO (indeterminate) on the cross-engine axis. Non-gating.
+  fix_vacuum_impedance:
+    default: false
+    effect: "ON -> use full-precision Z0 instead of 376.730 (F1); DEVIATION when ON."
+  guard_real_epssup:
+    default: false
+    effect: "ON -> raise on complex epssup instead of silent nonphysical (F2); DEVIATION when ON."
+
+# NaN policy: NaN == NaN is treated EQUAL (documented). A NaN vs non-NaN is a FAIL
+# unless the fixture is a documented singular/indeterminate point (near_anomaly, D2).
+nan_equals_nan: true

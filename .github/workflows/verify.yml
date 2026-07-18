@@ -1,0 +1,91 @@
+name: verify
+
+# Four independent jobs (each a green check):
+#   verify   — regenerate the golden reference with GNU Octave and gate the port
+#   pytest   — unit tests vs the committed MATLAB golden, on 3 Python versions
+#   lint     — ruff
+#   notebook — the quickstart notebook must execute top-to-bottom clean
+#
+# MATLAB is not available on public runners, so CI uses Octave as the reference of
+# record; the authoritative MATLAB gate + the MATLAB-vs-Octave cross-engine check run
+# locally (VERIFICATION_NOTES 10.3). A gating FAIL fails the job.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GNU Octave
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends octave
+          octave --version | head -1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: Regenerate reference outputs (Octave, over frozen fixtures)
+        run: octave -q run_reference.m
+      - name: Compare Python port vs Octave reference (build report)
+        run: python verify/compare.py --reference octave
+      - name: Upload report.html
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-report
+          path: |
+            report.html
+            verification_report.md
+
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package + test deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: pytest (port vs committed MATLAB golden)
+        run: pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: python -m pip install ruff
+      - name: Ruff lint
+        run: ruff check .
+
+  notebook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps + jupyter
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" jupyter nbconvert
+      - name: Execute quickstart notebook (must run top-to-bottom clean)
+        working-directory: notebooks
+        env:
+          MPLBACKEND: Agg
+        run: jupyter nbconvert --to notebook --execute --output /tmp/out.ipynb quickstart.ipynb
